@@ -29,10 +29,11 @@ gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 edged = cv2.Canny(blurred, 75, 200)
 
+"""
 cv2.imshow("Edged", edged)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
-
+"""
 # find the cnts in the edge map, then initialize the contour that corresponds to the document
 cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 """
@@ -74,10 +75,11 @@ warped = four_point_transform(gray, docCnt.reshape(4, 2))
 
 # apply Otsu's thresholding method to binarize the warped piece of paper
 thresh = cv2.threshold(warped, thresh=0, maxval=255, type=cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
-
+"""
 cv2.imshow("thresh", thresh)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+"""
 # find cnts in the thresholded image, then initialize
 # the list of cnts that correspond to questions
 cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -96,16 +98,17 @@ for contour in cnts:
         questioncnts.append(contour)
 
 color = (0, 0, 255)  # red
+# Uncomment to create bubble for every question
+"""
 question = cv2.drawContours(paper, questioncnts, -1, color, 3)
 cv2.imshow("Question", question)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
-
+"""
 # sort the question cnts top-to-bottom, then initiaize the total number of correct answers
 questioncnts = contours.sort_contours(questioncnts, method="top-to-bottom")[0]
 correct = 0
 
-Color = collections.namedtuple("Color", ["blue", "green", "red"])
 colors = {
     "red": (0, 0, 255),
     "green": (0, 255, 0),
@@ -119,9 +122,13 @@ for (q, i) in enumerate(np.arange(0, len(questioncnts), 5)):
     # sort the cnts for the current question from left to right, then initialize the index
     # of the bubbled answer
     cnts = contours.sort_contours(questioncnts[i : i + 5])[0]
+
+    # Uncomment to show evvery row with different color
+    """
     rows_of_bubbles = cv2.drawContours(paper, cnts, -1, list(colors.values())[q], 3)
     cv2.imshow("rows bubble", rows_of_bubbles)
     cv2.waitKey(0)
+    """
     bubbled = None
 
     # loop over the sorted contours
@@ -142,8 +149,44 @@ for (q, i) in enumerate(np.arange(0, len(questioncnts), 5)):
         if bubbled is None or total > bubbled[0]:
             bubbled = (total, j)
 
+        # Uncomment to show every Question choice bubbles
+        """
         bubble_hearthstone = cv2.drawContours(mask, [c], -1, 255, 3)
         cv2.imshow("bubbled", bubble_hearthstone)
         cv2.waitKey(0)
-        cv2.destroyAllWindows()
-# python test_grader.py --image images/test_01.png
+        """
+        # initialize the contour color and the index of the *correct* answer
+        color = (0, 0, 255)
+        k = ANSWER_KEY[q]
+
+    # chec to see if the bubbled answer is correct
+    if k == bubbled[1]:
+        color = (0, 255, 0)
+        correct += 1
+
+    cv2.drawContours(paper, [cnts[k]], -1, color, 3)
+    # Uncomment to show right answer detection
+    """
+    exam = cv2.drawContours(paper, [cnts[k]], -1, color, 3)
+    cv2.imshow("Exam", exam)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    """
+# grab the test taker
+score = (correct / 5.0) * 100
+print(f"[INFO] score: {score:.2f}%")
+cv2.putText(paper, f"{score:.2f}%", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+cv2.imshow("Original", image)
+cv2.imshow("Exam", paper)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+"""
+In this code we extract contours and do not use Hough circles, because of User error.
+Reason is from real life, because there are many examples where people mar outside the circle.
+
+The cv2.findContours  function doesn’t care if the bubble is “round”, “perfectly round”, or “oh my god, what the hell is that?”.
+
+Instead, the cv2.findContours  function will return a set of blobs to you, which will be the foreground regions in your image. 
+"""
+# poetry run python test_grader_opencv/test_grader.py --image images/test_01.png
